@@ -29,15 +29,15 @@ from datetime import datetime
 autosave_enabled = False
 
 # ========================
-# History main functions
+# History snapshot
 # ========================
 
-def det_history_dir():
+def get_history_dir():
     filepath = bpy.data.filepath
     if not filepath:
         return None
     basedir = os.path.dirname(filepath)
-    history_dir = os.path.join(basedir, "history")
+    history_dir = os.path.join(basedir, ".history")
     os.makedirs(history_dir, exist_ok=True)
     return history_dir
 
@@ -46,34 +46,26 @@ def save_snapshot():
     if not current_file:
         print("No file is saved.")
         return
-    
-    history_dir = det_history_dir()
+    history_dir = get_history_dir()
     if not history_dir:
         return
-    
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     base_name = os.path.basename(current_file).replace(".blend", "")
     snapshot_name = f"{base_name}_{timestamp}.blend"
     snapshot_path = os.path.join(history_dir, snapshot_name)
-    
     shutil.copy2(current_file, snapshot_path)
     print(f"Snapshot saved: {snapshot_path}")
-    
+
 def list_snapshots():
-    history_dir = det_history_dir()
+    history_dir = get_history_dir()
     if not history_dir:
         return []
-    
-    return sorted([
-        f for f in os.listdir(history_dir)
-        if f.endswith(".blend")
-        ], reverse =True)
+    return sorted([f for f in os.listdir(history_dir) if f.endswith(".blend")], reverse=True)
 
 def restore_snapshot(snapshot_name):
     history_dir = get_history_dir()
     if not history_dir:
-        return 
-    
+        return
     snapshot_path = os.path.join(history_dir, snapshot_name)
     if os.path.exists(snapshot_path):
         bpy.ops.wm.open_mainfile(filepath=snapshot_path)
@@ -81,7 +73,7 @@ def restore_snapshot(snapshot_name):
         print(f"Snapshot not found: {snapshot_path}")
 
 # ========================
-# Configuration
+# Settings
 # ========================
 
 class AutosaveSettings(bpy.types.PropertyGroup):
@@ -100,14 +92,14 @@ class AutosaveSettings(bpy.types.PropertyGroup):
     )
 
 # ========================
-# Autosave Function
+# Autosave
 # ========================
 
 def autosave():
     global autosave_enabled
 
     if not autosave_enabled:
-        print("autosave is disabled.")
+        print("Autosave is disabled.")
         return None
 
     settings = bpy.context.scene.autosave_settings
@@ -134,63 +126,17 @@ def autosave():
 
     return interval * 60.0
 
-
 # ========================
-# Panel UI
-# ========================
-
-class Autosave_PT_Panel(bpy.types.Panel):
-    bl_label = "File Autosaver"
-    bl_idname = "Autosave_PT_Panel"
-    bl_space_type = "VIEW_3D"
-    bl_region_type = "UI"
-    bl_category = "File Cloner"
-
-    def draw(self, context):
-        layout = self.layout
-        settings = context.scene.autosave_settings
-
-        layout.label(text="Autosave Settings")
-        layout.prop(settings, "save_directory")
-        layout.prop(settings, "save_interval")
-
-        row = layout.row()
-        toggle_text = "Disable Autosave" if autosave_enabled else "Enable Autosave"
-        toggle_icon = "PAUSE" if autosave_enabled else "PLAY"
-        row.operator("autosave.toggle", text=toggle_text, icon=toggle_icon)
-        
-class Autosave_PT_SnapshotPanel(bpy.types.Panel):
-    bl_label = "Snapshots History"
-    bl_idname = "Autosave_PT_snapshot_panel"
-    bl_space_type = 'TEXT_EDITOR'
-    bl_region_type = 'UI'
-    bl_category = 'UFH'
-
-    def draw(self, context):
-        layout = self.layout
-        layout.operator("ufh.save_snapshot", icon="FILE_TICK")
-
-        layout.separator()
-        layout.label(text="Snapshots salvos:")
-
-        snapshots = list_snapshots()
-        for snap in snapshots:
-            row = layout.row(align=True)
-            row.label(text=snap, icon="FILE_BLEND")
-            op = row.operator("ufh.load_snapshot", text="Restaurar", icon="IMPORT")
-            op.filename = snap
-            
-# ========================
-# Operator for on/off
+# Operators
 # ========================
 
 class Autosave_OT_Toggle(bpy.types.Operator):
     bl_idname = "autosave.toggle"
     bl_label = "Toggle Autosave"
+    bl_description = "Enable or disable the autosave system."
 
     def execute(self, context):
         global autosave_enabled
-
         if autosave_enabled:
             bpy.app.timers.unregister(autosave)
             autosave_enabled = False
@@ -199,32 +145,70 @@ class Autosave_OT_Toggle(bpy.types.Operator):
             bpy.app.timers.register(autosave, first_interval=context.scene.autosave_settings.save_interval * 60.0)
             autosave_enabled = True
             self.report({'INFO'}, "Autosave Enabled")
-
         return {'FINISHED'}
 
-# ========================
-# Operators from history
-# ========================
-
 class Autosave_OT_SaveSnapshot(bpy.types.Operator):
-    bl_idname = "history.save_snapshot"
+    bl_idname = "autosave.save_snapshot"
     bl_label = "Save Snapshot"
-    bl_snapshot_name: "Creates a save of .blend file on .history folder."
+    bl_description = "Creates a snapshot in the .history folder."
 
     def execute(self, context):
         save_snapshot()
         return {'FINISHED'}
-    
-class Autosave_OT_LoadSnapshots(bpy.types.Operator):
-    bl_idname = "history.load_snapshots"
-    bl_label = "Restore Snapshots"
-    bl_snapshot_name: "Load snapshots from .history folder."
-        
-        filename: bpy.props.StringProperty()
-        
-        def execute(self, context):
-            restore_snapshot(self.filename)
-            return {FINISHED}
+
+class Autosave_OT_LoadSnapshot(bpy.types.Operator):
+    bl_idname = "autosave.load_snapshot"
+    bl_label = "Load Snapshot"
+    bl_description = "Load a snapshot from .history folder."
+
+    __annotations__ = {
+        "filename": bpy.props.StringProperty()
+    }
+
+    def execute(self, context):
+        restore_snapshot(self.filename)
+        return {'FINISHED'}
+
+# ========================
+# Panel UI
+# ========================
+
+class Autosave_PT_Panel(bpy.types.Panel):
+    bl_label = "File Autosaver"
+    bl_idname = "AUTOSAVE_PT_main"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+    bl_category = "File Cloner"
+
+    def draw(self, context):
+        layout = self.layout
+        settings = context.scene.autosave_settings
+        layout.label(text="Autosave Settings")
+        layout.prop(settings, "save_directory")
+        layout.prop(settings, "save_interval")
+        row = layout.row()
+        toggle_text = "Disable Autosave" if autosave_enabled else "Enable Autosave"
+        toggle_icon = "PAUSE" if autosave_enabled else "PLAY"
+        row.operator("autosave.toggle", text=toggle_text, icon=toggle_icon)
+
+class Autosave_PT_SnapshotPanel(bpy.types.Panel):
+    bl_label = "Snapshots History"
+    bl_idname = "AUTOSAVE_PT_snapshots"
+    bl_space_type = 'TEXT_EDITOR'
+    bl_region_type = 'UI'
+    bl_category = 'UFH'
+
+    def draw(self, context):
+        layout = self.layout
+        layout.operator("autosave.save_snapshot", icon="FILE_TICK")
+        layout.separator()
+        layout.label(text="Saved Snapshots:")
+        snapshots = list_snapshots()
+        for snap in snapshots:
+            row = layout.row(align=True)
+            row.label(text=snap, icon="FILE_BLEND")
+            op = row.operator("autosave.load_snapshot", text="Restore", icon="IMPORT")
+            op.filename = snap
 
 # ========================
 # Register
@@ -234,7 +218,7 @@ classes = (
     AutosaveSettings,
     Autosave_OT_Toggle,
     Autosave_OT_SaveSnapshot,
-    Autosave_OT_LoadSnapshots,
+    Autosave_OT_LoadSnapshot,
     Autosave_PT_SnapshotPanel,
     Autosave_PT_Panel,
 )
@@ -242,7 +226,6 @@ classes = (
 def register():
     for cls in classes:
         bpy.utils.register_class(cls)
-
     bpy.types.Scene.autosave_settings = bpy.props.PointerProperty(type=AutosaveSettings)
 
 def unregister():
@@ -250,12 +233,9 @@ def unregister():
         bpy.app.timers.unregister(autosave)
     except:
         pass
-
     del bpy.types.Scene.autosave_settings
-
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)
-
 
 if __name__ == "__main__":
     register()
