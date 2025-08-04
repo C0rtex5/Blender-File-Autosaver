@@ -178,7 +178,7 @@ class Autosave_PT_Panel(bpy.types.Panel):
     bl_idname = "AUTOSAVE_PT_main"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
-    bl_category = "File Cloner"
+    bl_category = "File Autosave"
 
     def draw(self, context):
         layout = self.layout
