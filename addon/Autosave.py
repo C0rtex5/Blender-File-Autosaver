@@ -1,10 +1,10 @@
 bl_info = {
-    "name": "Blender File Autosave",
+    "name": "Blender File Autosaver",
     "author": "Cortex",
     "blender": (4, 2, 0),
     "category": "System",
     "version": (1, 0, 0),
-    "description": "Atuomatically autosaves Blender files at specified intervals.",
+    "description": "This is the add-on for make the file saving in Blender better and more convenient.",
 }
 
 # ========================
